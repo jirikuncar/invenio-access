@@ -26,7 +26,6 @@ import six
 from .control import acc_get_role_id, acc_is_user_in_role
 from .engine import acc_authorize_action
 from .firerole import acc_firerole_check_user, compile_role_definition
-from .local_config import CFG_WEBACCESS_WARNING_MSGS, SUPERADMINROLE
 
 
 def acl_factory(obj=''):
@@ -58,6 +57,8 @@ def acl_factory(obj=''):
                 `auth_code` is 0 if the authorization is granted and greater
                 than 0 otherwise.
             """
+            from .local_config import (CFG_WEBACCESS_WARNING_MSGS,
+                                       SUPERADMINROLE)
             if user_info is None:
                 user_info = current_user
 
@@ -65,7 +66,11 @@ def acl_factory(obj=''):
             if restriction is None:
                 return (1, 'Missing restriction')
 
-            if acc_is_user_in_role(user_info, acc_get_role_id(SUPERADMINROLE)):
+            if models.UserAccROLE.is_user_in_any_role(
+                user_info=user_info,
+                id_roles=[
+                    models.AccROLE.factory(name=SUPERADMINROLE).id]
+            ):
                 return (0, CFG_WEBACCESS_WARNING_MSGS[0])
 
             is_authorized = (0, CFG_WEBACCESS_WARNING_MSGS[0])
@@ -95,8 +100,11 @@ def acl_factory(obj=''):
                                          '%s in order to access this document'
                                          % repr(auth_value))
                 elif auth_type == 'role':
-                    if not acc_is_user_in_role(user_info,
-                                               acc_get_role_id(auth_value)):
+                    if not models.UserAccROLE.is_user_in_any_role(
+                        user_info=user_info,
+                        id_roles=[r.id for r in models.AccROLE.factory(
+                            name=auth_value)]
+                    ):
                         is_authorized = (1, 'You must be member in the role %s'
                                          ' in order to access this document' %
                                          repr(auth_value))
