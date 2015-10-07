@@ -27,6 +27,8 @@ from datetime import datetime, timedelta
 
 from invenio_accounts.models import User
 
+from invenio_base.wrappers import lazy_import
+
 from invenio_ext.passlib.hash import mysql_aes_decrypt, mysql_aes_encrypt
 from invenio_ext.sqlalchemy import db
 from invenio_ext.sqlalchemy.utils import session_manager
@@ -44,9 +46,16 @@ from .errors import AccessFactoryError, \
     InvenioWebAccessMailCookieDeletedError, InvenioWebAccessMailCookieError
 from .firerole import acc_firerole_check_user, \
     compile_role_definition, deserialize, serialize
-from .local_config import CFG_ACC_ACTIVITIES_URLS, \
-    CFG_ACC_EMPTY_ROLE_DEFINITION_SER, CFG_ACC_EMPTY_ROLE_DEFINITION_SRC, \
-    SUPERADMINROLE
+
+CFG_ACC_EMPTY_ROLE_DEFINITION_OBJ = lazy_import(
+    'invenio_access.local_config:CFG_ACC_EMPTY_ROLE_DEFINITION_OBJ')
+CFG_ACC_EMPTY_ROLE_DEFINITION_SER = lazy_import(
+    'invenio_access.local_config:CFG_ACC_EMPTY_ROLE_DEFINITION_SER')
+CFG_ACC_EMPTY_ROLE_DEFINITION_SRC = lazy_import(
+    'invenio_access.local_config:CFG_ACC_EMPTY_ROLE_DEFINITION_SRC')
+SUPERADMINROLE = lazy_import(
+    'invenio_access.local_config:SUPERADMINROLE')
+
 
 
 class AccACTION(db.Model):
@@ -698,7 +707,7 @@ class UserAccROLE(db.Model):
         :return: True if the user have at least one of that roles
         """
         filters = [
-            UserAccROLE.id_user == user_info['uid'],
+            UserAccROLE.id_user == user_info.get_id(),
             UserAccROLE.expiration >= db.func.now(),
             UserAccROLE.id_accROLE.in_(id_roles)
         ]

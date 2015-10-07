@@ -26,10 +26,10 @@ import urlparse
 
 from intbitset import intbitset
 
-from invenio.config import CFG_SITE_ADMIN_EMAIL, CFG_SITE_LANG, CFG_SITE_RECORD
+from invenio_base.globals import cfg
+
 from invenio_ext import principal
 from invenio_ext.sqlalchemy import db
-from invenio.legacy.dbquery import run_sql, truncate_table
 
 from six import iteritems
 
@@ -45,7 +45,7 @@ from .local_config import (
     DELEGATEADDUSERROLE, SUPERADMINROLE
 )
 from .models import AccACTION, AccAuthorization, \
-    UserAccROLE
+    UserAccROLE, AccROLE
 
 
 def acc_add_action(name_action='', description='', optional='no',
@@ -223,16 +223,8 @@ def acc_add_role(name_role, description,
 
     firerole_def_src - firewall like role definition sources
     """
-    if not run_sql("""SELECT name FROM "accROLE" WHERE name = %s""",
-                   (name_role, )):
-        res = run_sql(
-            """INSERT INTO "accROLE" (name, description, firerole_def_ser,
-                                      firerole_def_src)
-                VALUES (%s, %s, %s, %s)""",
-            (name_role, description, bytearray(firerole_def_ser)
-             if firerole_def_ser is not None else None, firerole_def_src))
-        return res, name_role, description, firerole_def_src
-    return 0
+    role = AccROLE.factory(name_role, description, firerole_def_src)
+    return role, name_role, description, firerole_def_src
 
 
 def acc_is_role(name_action, **arguments):
@@ -1019,11 +1011,7 @@ def acc_get_action_id(name_action):
 
     name_action - name of the wanted action
     """
-    try:
-        return run_sql("""SELECT id FROM "accACTION" WHERE name = %s""",
-                       (name_action, ), run_on_slave=True)[0][0]
-    except (ProgrammingError, IndexError):
-        return 0
+    return AccACTION.query.filter_by(name=name_action).value(AccACTION.id)
 
 
 def acc_get_action_name(id_action):
@@ -1128,11 +1116,7 @@ def acc_get_action_roles(id_action):
 
 def acc_get_role_id(name_role):
     """get id of role, name given."""
-    try:
-        return run_sql("""SELECT id FROM "accROLE" WHERE name = %s""",
-                       (name_role, ), run_on_slave=True)[0][0]
-    except IndexError:
-        return 0
+    return AccROLE.query.filter_by(name=name_role).value(AccROLE.id)
 
 
 def acc_get_role_name(id_role):
@@ -1249,11 +1233,10 @@ def acc_get_user_id(email=''):
 
 def acc_is_user_in_role(user_info, id_role):
     """Return True if the user belong implicitly or explicitly to the role."""
-    if run_sql("""SELECT ur."id_accROLE"
-            FROM "user_accROLE" ur
-            WHERE ur.id_user = %s AND ur.expiration >= NOW() AND
-            ur."id_accROLE"  = %s LIMIT 1""", (user_info['uid'], id_role), 1,
-               run_on_slave=True):
+    if db.session.query(db.func.count(UserAccROLE.id_accROLE)).filter(db.and_(
+            UserAccROLE.id_user == user_info['uid'],
+            UserAccROLE.expiration >= db.func.now(),
+            UserAccROLE.id_accROLE == id_roles)).scalar() > 0:
         return True
 
     return acc_firerole_check_user(user_info, load_role_definition(id_role))
@@ -1307,13 +1290,14 @@ def acc_get_user_roles(id_user):
     return [id_role[0] for id_role in explicit_roles]
 
 
-def acc_find_possible_activities(user_info, ln=CFG_SITE_LANG):
+def acc_find_possible_activities(user_info, ln=None):
     """Return dictionary with all the possible activities.
 
     The list contains all the possible activities for which the user
     is allowed (i.e. all the administrative action which are connected to
     an web area in Invenio) and the corresponding url.
     """
+    ln = ln or cfg['CFG_SITE_LANG']
     your_role_actions = acc_find_user_role_actions(user_info)
     your_admin_activities = {}
     for (role, action) in your_role_actions:
@@ -1328,7 +1312,7 @@ def acc_find_possible_activities(user_info, ln=CFG_SITE_LANG):
 
     if 'runbibedit' in your_admin_activities or \
        'runbibdocfile' in your_admin_activities and \
-       user_info['uri'].startswith('/' + CFG_SITE_RECORD + '/'):
+       user_info['uri'].startswith('/' + cfg['CFG_SITE_RECORD'] + '/'):
         try:
             # Get record ID and try to cast it to an int
             current_record_id = int(
@@ -1802,6 +1786,7 @@ def acc_delete_all_settings():
     tables accROLE, accACTION, accARGUMENT and those connected.
     """
     from invenio_ext.sqlalchemy import db
+    from invenio.legacy.dbquery import truncate_table
     db.session.commit()
 
     truncate_table("accROLE")
@@ -1836,8 +1821,8 @@ def acc_add_default_settings(superusers=(),
         if type(user) is str:
             user = [user]
         DEF_USERS.append(user[0])
-    if CFG_SITE_ADMIN_EMAIL not in DEF_USERS:
-        DEF_USERS.append(CFG_SITE_ADMIN_EMAIL)
+    if cfg['CFG_SITE_ADMIN_EMAIL'] not in DEF_USERS:
+        DEF_USERS.append(cfg['CFG_SITE_ADMIN_EMAIL'])
 
     # add data
 

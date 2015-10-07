@@ -28,27 +28,38 @@ import sys
 import time
 
 from invenio_base.globals import cfg
+from invenio_base.wrappers import lazy_import
 from invenio_ext.logging import register_exception
-from invenio.legacy.dbquery import blob_to_string, run_sql
+
 from six.moves import cPickle
 
 from zlib import compress, decompress
 
 from .errors import InvenioWebAccessFireroleError
-from .local_config import \
-    CFG_ACC_EMPTY_ROLE_DEFINITION_OBJ, \
-    CFG_ACC_EMPTY_ROLE_DEFINITION_SER, \
-    CFG_ACC_EMPTY_ROLE_DEFINITION_SRC
+
+CFG_ACC_EMPTY_ROLE_DEFINITION_OBJ = lazy_import(
+    'invenio_access.local_config:CFG_ACC_EMPTY_ROLE_DEFINITION_OBJ')
+CFG_ACC_EMPTY_ROLE_DEFINITION_SER = lazy_import(
+    'invenio_access.local_config:CFG_ACC_EMPTY_ROLE_DEFINITION_SER')
+CFG_ACC_EMPTY_ROLE_DEFINITION_SRC = lazy_import(
+    'invenio_access.local_config:CFG_ACC_EMPTY_ROLE_DEFINITION_SRC')
 
 
-__revision__ = "$Id$"
+def blob_to_string(ablob):
+    """Return string representation of ABLOB.
 
-__lastupdated__ = """$Date$"""
-
-if sys.hexversion < 0x2040000:
-    # pylint: disable=W0622
-    from sets import Set as set
-    # pylint: enable=W0622
+    Useful to treat MySQL BLOBs in the same way for both recent and old
+    MySQLdb versions.
+    """
+    if ablob:
+        if type(ablob) is str:
+            # BLOB is already a string in MySQLdb 0.9.2
+            return ablob
+        else:
+            # BLOB is array.array in MySQLdb 1.0.0 and later
+            return ablob.tostring()
+    else:
+        return ablob
 
 
 def compile_role_definition(firerole_def_src):

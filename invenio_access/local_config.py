@@ -19,14 +19,19 @@
 
 """Invenio Access Control Config. """
 
-__revision__ = \
-    "$Id$"
-
 # pylint: disable=C0301
 
-from invenio.config import CFG_SITE_NAME, CFG_SITE_URL, CFG_SITE_SECURE_URL, CFG_SITE_SUPPORT_EMAIL, CFG_SITE_RECORD, CFG_SITE_ADMIN_EMAIL
+from flask import current_app
+
 from invenio_base.i18n import _
 from invenio_base.globals import cfg as config
+
+CFG_SITE_NAME = current_app.config['CFG_SITE_NAME']
+CFG_SITE_URL = current_app.config['CFG_SITE_URL']
+CFG_SITE_SECURE_URL = current_app.config['CFG_SITE_SECURE_URL']
+CFG_SITE_SUPPORT_EMAIL = current_app.config['CFG_SITE_SUPPORT_EMAIL']
+CFG_SITE_RECORD = current_app.config['CFG_SITE_RECORD']
+CFG_SITE_ADMIN_EMAIL = current_app.config['CFG_SITE_ADMIN_EMAIL']
 
 # VALUES TO BE EXPORTED
 # CURRENTLY USED BY THE FILES access_control_engine.py modules.access.control.py webaccessadmin_lib.py
