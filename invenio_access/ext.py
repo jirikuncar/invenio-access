@@ -28,6 +28,8 @@ from __future__ import absolute_import, print_function
 
 import pkg_resources
 
+from flask_principal import UserNeed, identity_changed
+
 from .cli import access as access_cli
 
 
@@ -95,6 +97,12 @@ class InvenioAccess(object):
         state = _AccessState(app, entry_point_group=entry_point_group,
                              cache=kwargs.get('cache'))
         app.extensions['invenio-access'] = state
+
+        @identity_changed.connect_via(app)
+        def on_identity_loaded(sender, identity):
+            """Add ``UserNeed(None)`` need to all identities."""
+            identity.provides.add(UserNeed(None))
+
         return state
 
     def init_config(self, app):

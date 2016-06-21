@@ -27,7 +27,7 @@
 
 from __future__ import absolute_import, print_function
 
-from flask_principal import ActionNeed, RoleNeed, UserNeed
+from flask_principal import ActionNeed, AnonymousIdentity, RoleNeed, UserNeed
 from invenio_accounts.models import Role, User
 from invenio_db import db
 
@@ -143,3 +143,32 @@ def test_invenio_access_permission_for_roles(app):
 
         assert not permission_open.allows(identity_read)
         assert permission_read.allows(identity_read)
+
+
+def test_guest_access(app):
+    """Test guest access."""
+    InvenioAccess(app)
+    with app.test_request_context():
+        superuser = User(email='admin@invenio-software.org')
+        user = User(email='user@invenio-software.org')
+        info = User(email='info@invenio-software.org')
+        db.session.add(superuser)
+        db.session.add(user)
+        db.session.add(info)
+
+        db.session.add(ActionUsers(action='superuser-access', user=superuser))
+        db.session.add(ActionUsers(action='open', user=user))
+        db.session.add(ActionUsers(action='open'))
+        db.session.commit()
+
+        permission_open = DynamicPermission(ActionNeed('open'))
+
+        identity_unknown = AnonymousIdentity()
+        identity_superuser = FakeIdentity(UserNeed(superuser.id))
+        identity_user = FakeIdentity(UserNeed(user.id))
+        identity_info = FakeIdentity(UserNeed(info.id))
+
+        assert permission_open.allows(identity_unknown)
+        assert permission_open.allows(identity_superuser)
+        assert permission_open.allows(identity_user)
+        assert permission_open.allows(identity_info)
